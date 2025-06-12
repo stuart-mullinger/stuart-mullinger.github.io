@@ -71,6 +71,29 @@
             display: block;
         }
         
+        .project-image-link {
+            display: block;
+            overflow: hidden;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .project-image-link::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.1);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .project-image-link:hover::after {
+            opacity: 1;
+        }
+        
         .placeholder-image {
             width: 100%;
             height: 200px;
@@ -157,70 +180,34 @@
     
     <div class="container">
         <div class="projects-grid">
-            <!-- Project 1 -->
+            <!-- C64 Sprite Editor Project -->
             <div class="project-tile">
-                <img src="images/placeholder1.svg" alt="Project One" class="project-image">
+                <a href="projects/gemini-c64-sprite-editor.html" class="project-image-link">
+                    <img src="images/sprite-editor.svg" alt="Commodore 64 Sprite Editor" class="project-image">
+                </a>
                 <div class="project-info">
-                    <h2 class="project-title">Project One</h2>
-                    <p class="project-description">A brief description of the first project and what technologies were used.</p>
-                    <a href="#" class="project-link">View Details</a>
+                    <h2 class="project-title">C64 Sprite Editor</h2>
+                    <p class="project-description">An interactive web-based sprite editor for creating Commodore 64 style pixel art. Built with HTML, CSS, and JavaScript.</p>
+                    <a href="projects/gemini-c64-sprite-editor.html" class="project-link">View Project</a>
                 </div>
             </div>
             
-            <!-- Project 2 -->
+            <!-- Model Train Speed Calculator Project -->
             <div class="project-tile">
-                <img src="images/placeholder2.svg" alt="Project Two" class="project-image">
+                <a href="projects/gemini-model-train-speed.html" class="project-image-link">
+                    <img src="images/train-speed.svg" alt="Model Train Speed Calculator" class="project-image">
+                </a>
                 <div class="project-info">
-                    <h2 class="project-title">Project Two</h2>
-                    <p class="project-description">A brief description of the second project and what technologies were used.</p>
-                    <a href="#" class="project-link">View Details</a>
-                </div>
-            </div>
-            
-            <!-- Project 3 -->
-            <div class="project-tile">
-                <img src="images/placeholder3.svg" alt="Project Three" class="project-image">
-                <div class="project-info">
-                    <h2 class="project-title">Project Three</h2>
-                    <p class="project-description">A brief description of the third project and what technologies were used.</p>
-                    <a href="#" class="project-link">View Details</a>
-                </div>
-            </div>
-            
-            <!-- Project 4 -->
-            <div class="project-tile">
-                <img src="images/placeholder4.svg" alt="Project Four" class="project-image">
-                <div class="project-info">
-                    <h2 class="project-title">Project Four</h2>
-                    <p class="project-description">A brief description of the fourth project and what technologies were used.</p>
-                    <a href="#" class="project-link">View Details</a>
-                </div>
-            </div>
-            
-            <!-- Project 5 -->
-            <div class="project-tile">
-                <img src="images/placeholder5.svg" alt="Project Five" class="project-image">
-                <div class="project-info">
-                    <h2 class="project-title">Project Five</h2>
-                    <p class="project-description">A brief description of the fifth project and what technologies were used.</p>
-                    <a href="#" class="project-link">View Details</a>
-                </div>
-            </div>
-            
-            <!-- Project 6 -->
-            <div class="project-tile">
-                <img src="images/placeholder6.svg" alt="Project Six" class="project-image">
-                <div class="project-info">
-                    <h2 class="project-title">Project Six</h2>
-                    <p class="project-description">A brief description of the sixth project and what technologies were used.</p>
-                    <a href="#" class="project-link">View Details</a>
+                    <h2 class="project-title">Model Train Speed Calculator</h2>
+                    <p class="project-description">A utility for model train enthusiasts to calculate scale speeds of their trains. Built with HTML, CSS, and JavaScript with Tailwind CSS.</p>
+                    <a href="projects/gemini-model-train-speed.html" class="project-link">View Project</a>
                 </div>
             </div>
         </div>
     </div>
     
     <footer>
-        <p>© 2023 My Portfolio. All rights reserved.</p>
+        <p>© <script>document.write(new Date().getFullYear())</script> My Portfolio. All rights reserved.</p>
     </footer>
 </body>
 </html>

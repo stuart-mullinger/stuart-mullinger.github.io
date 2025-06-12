@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Commodore 64 Sprite Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* For crisp pixel art scaling */
+        canvas {
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+        /* Ensure grid cells are square and clickable */
+        .grid-cell {
+            width: 20px; 
+            height: 20px; 
+            box-sizing: border-box; /* Ensures borders are included in width/height */
+        }
+        /* Custom scrollbar for textarea if desired */
+        textarea::-webkit-scrollbar {
+            width: 8px;
+        }
+        textarea::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        textarea::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        textarea::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .copy-button {
+            transition: background-color 0.15s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans flex flex-col items-center p-4 min-h-screen">
+    <h1 class="text-3xl font-bold mb-6 text-gray-800">Commodore 64 Sprite Editor</h1>
+
+    <div class="flex flex-col lg:flex-row gap-8 w-full max-w-5xl">
+        <div class="flex-grow flex flex-col items-center">
+            <h2 class="text-xl font-semibold mb-3 text-gray-700">Editing Grid (24x21 pixels)</h2>
+            <div id="sprite-grid" class="grid gap-px bg-gray-400 border border-gray-500 shadow-lg rounded-md overflow-hidden" 
+                 style="grid-template-columns: repeat(24, 20px);">
+                </div>
+            <button id="clear-grid-button" class="mt-4 px-6 py-2 bg-red-500 hover:bg-red-700 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out">
+                Clear Grid
+            </button>
+        </div>
+
+        <div class="w-full lg:w-96 flex flex-col items-center space-y-6">
+            <div>
+                <h2 class="text-xl font-semibold mb-3 text-gray-700">Sprite Color</h2>
+                <div id="sprite-color-palette" class="grid grid-cols-8 gap-1 p-2 bg-gray-200 rounded-md shadow-md">
+                    </div>
+            </div>
+
+            <div>
+                <h2 class="text-xl font-semibold mb-3 text-gray-700">Background Color</h2>
+                <div id="background-color-palette" class="grid grid-cols-8 gap-1 p-2 bg-gray-200 rounded-md shadow-md">
+                    </div>
+            </div>
+
+            <div>
+                <h2 class="text-xl font-semibold mb-3 text-gray-700">Preview (4x Zoom)</h2>
+                <canvas id="sprite-preview" width="24" height="21" class="border-2 border-black rounded shadow-lg" style="width: 96px; height: 84px;"></canvas>
+            </div>
+            
+            <div class="w-full">
+                <div class="flex justify-between items-center mb-1">
+                    <h2 class="text-xl font-semibold text-gray-700">Sprite Data (BASIC)</h2>
+                    <button id="copy-basic-button" class="copy-button px-3 py-1 bg-blue-500 hover:bg-blue-700 text-white text-xs font-semibold rounded-md shadow-sm">Copy</button>
+                </div>
+                <textarea id="sprite-data-output-basic" rows="8" class="w-full p-2 border border-gray-300 rounded-md font-mono text-xs bg-gray-50 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" readonly placeholder="Sprite data will appear here..."></textarea>
+            </div>
+
+            <div class="w-full">
+                <div class="flex justify-between items-center mb-1">
+                    <h2 class="text-xl font-semibold text-gray-700">Sprite Data (Assembly Hex)</h2>
+                    <button id="copy-hex-button" class="copy-button px-3 py-1 bg-green-500 hover:bg-green-700 text-white text-xs font-semibold rounded-md shadow-sm">Copy</button>
+                </div>
+                <textarea id="sprite-data-output-hex" rows="8" class="w-full p-2 border border-gray-300 rounded-md font-mono text-xs bg-gray-50 shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500" readonly placeholder="Hex data will appear here..."></textarea>
+            </div>
+        </div>
+    </div>
+    
+    <div id="copy-message-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center hidden">
+        <div class="p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Copied!</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p class="text-sm text-gray-500" id="copy-message-text">
+                        Data copied to clipboard.
+                    </p>
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button id="close-copy-message-button" class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- Configuration ---
+        const GRID_COLS = 24;
+        const GRID_ROWS = 21;
+        const DEFAULT_SPRITE_COLOR_HEX = '#000000'; 
+        const DEFAULT_BACKGROUND_COLOR_HEX = '#FFFFFF'; 
+
+        const C64_PALETTE = [
+            { name: "Black", hex: "#000000" }, { name: "White", hex: "#FFFFFF" },
+            { name: "Red", hex: "#68372B" }, { name: "Cyan", hex: "#70A4B2" },
+            { name: "Purple", hex: "#6F3D86" }, { name: "Green", hex: "#588D43" },
+            { name: "Blue", hex: "#352879" }, { name: "Yellow", hex: "#B8C76F" },
+            { name: "Orange", hex: "#6F4F25" }, { name: "Brown", hex: "#433900" },
+            { name: "Light Red", hex: "#9A6759" }, { name: "Dark Grey", hex: "#444444" },
+            { name: "Medium Grey", hex: "#6C6C6C" }, { name: "Light Green", hex: "#9AD284" },
+            { name: "Light Blue", hex: "#6C5EB5" }, { name: "Light Grey", hex: "#959595" },
+        ];
+
+        // --- Global State ---
+        let pixelData = []; 
+        let selectedSpriteColorHex = DEFAULT_SPRITE_COLOR_HEX;
+        let selectedBackgroundColorHex = DEFAULT_BACKGROUND_COLOR_HEX;
+        let activeSpriteColorSwatch = null;
+        let activeBgColorSwatch = null;
+
+        // --- DOM Elements ---
+        const spriteGrid = document.getElementById('sprite-grid');
+        const spriteColorPaletteContainer = document.getElementById('sprite-color-palette');
+        const backgroundColorPaletteContainer = document.getElementById('background-color-palette');
+        const previewCanvas = document.getElementById('sprite-preview');
+        const previewCtx = previewCanvas.getContext('2d');
+        const clearGridButton = document.getElementById('clear-grid-button');
+        const spriteDataOutputBasic = document.getElementById('sprite-data-output-basic');
+        const spriteDataOutputHex = document.getElementById('sprite-data-output-hex');
+        const copyBasicButton = document.getElementById('copy-basic-button');
+        const copyHexButton = document.getElementById('copy-hex-button');
+        const copyMessageModal = document.getElementById('copy-message-modal');
+        const copyMessageText = document.getElementById('copy-message-text');
+        const closeCopyMessageButton = document.getElementById('close-copy-message-button');
+
+
+        // --- Initialization ---
+        function initialize() {
+            pixelData = Array(GRID_ROWS).fill(null).map(() => Array(GRID_COLS).fill(0));
+            
+            createEditingGrid(); 
+            createSpriteColorPalette();
+            createBackgroundColorPalette();
+            
+            const initialSpriteColor = C64_PALETTE.find(c => c.hex === selectedSpriteColorHex) || C64_PALETTE[0];
+            setSelectedSpriteColor(initialSpriteColor.hex, document.querySelector(`#sprite-color-palette [data-color='${initialSpriteColor.hex}']`));
+
+            const initialBgColor = C64_PALETTE.find(c => c.hex === selectedBackgroundColorHex) || C64_PALETTE[1];
+            setSelectedBackgroundColor(initialBgColor.hex, document.querySelector(`#background-color-palette [data-color='${initialBgColor.hex}']`));
+
+            drawPreview(); 
+            generateAllSpriteData(); // Generate both formats
+
+            clearGridButton.addEventListener('click', handleClearGrid);
+            copyBasicButton.addEventListener('click', () => copyToClipboard(spriteDataOutputBasic.value, 'BASIC data'));
+            copyHexButton.addEventListener('click', () => copyToClipboard(spriteDataOutputHex.value, 'Assembly Hex data'));
+            closeCopyMessageButton.addEventListener('click', () => {
+                copyMessageModal.classList.add('hidden');
+            });
+        }
+
+        // --- Grid Creation and Handling ---
+        function createEditingGrid() {
+            spriteGrid.innerHTML = ''; 
+            for (let r = 0; r < GRID_ROWS; r++) {
+                for (let c = 0; c < GRID_COLS; c++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('grid-cell', 'hover:opacity-75', 'cursor-pointer'); 
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+                    cell.style.backgroundColor = selectedBackgroundColorHex; 
+
+                    if (c === 7 || c === 15) cell.classList.add('border-r-2', 'border-gray-600'); 
+                    if (r === 7 || r === 15) cell.classList.add('border-b-2', 'border-gray-600');
+
+                    cell.addEventListener('click', handleCellClick);
+                    spriteGrid.appendChild(cell);
+                }
+            }
+        }
+
+        function handleCellClick(event) {
+            const cell = event.target;
+            const r = parseInt(cell.dataset.row);
+            const c = parseInt(cell.dataset.col);
+
+            pixelData[r][c] = pixelData[r][c] === 0 ? 1 : 0;
+
+            cell.style.backgroundColor = pixelData[r][c] === 1 ? selectedSpriteColorHex : selectedBackgroundColorHex;
+
+            drawPreview();
+            generateAllSpriteData();
+        }
+
+        function handleClearGrid() {
+            pixelData = Array(GRID_ROWS).fill(null).map(() => Array(GRID_COLS).fill(0));
+            createEditingGrid(); 
+            drawPreview();
+            generateAllSpriteData();
+        }
+
+        // --- Color Palettes ---
+        function createPalette(container, colorArray, onColorSelectCallback) {
+            container.innerHTML = '';
+            colorArray.forEach(color => {
+                const swatch = document.createElement('div');
+                swatch.classList.add('w-8', 'h-8', 'rounded', 'cursor-pointer', 'border-2', 'border-transparent', 'hover:border-gray-500');
+                swatch.style.backgroundColor = color.hex;
+                swatch.dataset.color = color.hex;
+                swatch.title = color.name; 
+
+                if (isColorDark(color.hex)) swatch.classList.add('shadow-[inset_0_0_0_1px_rgba(255,255,255,0.2)]');
+                else swatch.classList.add('shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)]');
+
+                swatch.addEventListener('click', (e) => onColorSelectCallback(color.hex, e.target));
+                container.appendChild(swatch);
+            });
+        }
+
+        function createSpriteColorPalette() {
+            createPalette(spriteColorPaletteContainer, C64_PALETTE, setSelectedSpriteColor);
+        }
+
+        function createBackgroundColorPalette() {
+            createPalette(backgroundColorPaletteContainer, C64_PALETTE, setSelectedBackgroundColor);
+        }
+        
+        function isColorDark(hexColor) {
+            const rgb = parseInt(hexColor.slice(1), 16); 
+            const r = (rgb >> 16) & 0xff, g = (rgb >> 8) & 0xff, b = rgb & 0xff;
+            return (0.2126 * r + 0.7152 * g + 0.0722 * b) < 128; 
+        }
+
+        function updateSwatchSelection(newSwatch, activeSwatchRef, oldActiveSwatch) {
+            if (oldActiveSwatch) {
+                oldActiveSwatch.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500', 'border-blue-500');
+                oldActiveSwatch.classList.add('border-transparent');
+            }
+            if (newSwatch) {
+                newSwatch.classList.add('ring-2', 'ring-offset-2', 'ring-blue-500', 'border-blue-500');
+                newSwatch.classList.remove('border-transparent');
+                if (activeSwatchRef === 'sprite') activeSpriteColorSwatch = newSwatch;
+                else if (activeSwatchRef === 'bg') activeBgColorSwatch = newSwatch;
+            } else {
+                 if (activeSwatchRef === 'sprite') activeSpriteColorSwatch = null;
+                 else if (activeSwatchRef === 'bg') activeBgColorSwatch = null;
+            }
+        }
+        
+        function setSelectedSpriteColor(hexColor, swatchElement) {
+            selectedSpriteColorHex = hexColor;
+            updateSwatchSelection(swatchElement, 'sprite', activeSpriteColorSwatch);
+            updateGridSpriteColors(); 
+            drawPreview(); 
+        }
+
+        function setSelectedBackgroundColor(hexColor, swatchElement) {
+            selectedBackgroundColorHex = hexColor;
+            updateSwatchSelection(swatchElement, 'bg', activeBgColorSwatch);
+            updateGridBackgroundColors(); 
+            drawPreview(); 
+        }
+
+        function updateGridSpriteColors() {
+            spriteGrid.querySelectorAll('.grid-cell').forEach(cell => {
+                const r = parseInt(cell.dataset.row), c = parseInt(cell.dataset.col);
+                if (pixelData[r][c] === 1) cell.style.backgroundColor = selectedSpriteColorHex;
+            });
+        }
+
+        function updateGridBackgroundColors() {
+            spriteGrid.querySelectorAll('.grid-cell').forEach(cell => {
+                const r = parseInt(cell.dataset.row), c = parseInt(cell.dataset.col);
+                if (pixelData[r][c] === 0) cell.style.backgroundColor = selectedBackgroundColorHex;
+            });
+        }
+
+        // --- Preview Rendering ---
+        function drawPreview() {
+            previewCtx.fillStyle = selectedBackgroundColorHex;
+            previewCtx.fillRect(0, 0, GRID_COLS, GRID_ROWS);
+            previewCtx.fillStyle = selectedSpriteColorHex;
+            for (let r = 0; r < GRID_ROWS; r++) {
+                for (let c = 0; c < GRID_COLS; c++) {
+                    if (pixelData[r][c] === 1) previewCtx.fillRect(c, r, 1, 1);
+                }
+            }
+        }
+
+        // --- Sprite Data Generation ---
+        function getRowBytes(r) {
+            const rowBytes = [];
+            for (let byteIndex = 0; byteIndex < GRID_COLS / 8; byteIndex++) {
+                let currentByte = 0;
+                for (let bit = 0; bit < 8; bit++) {
+                    const col = byteIndex * 8 + bit;
+                    if (col < GRID_COLS && pixelData[r][col] === 1) {
+                        currentByte |= (1 << (7 - bit)); 
+                    }
+                }
+                rowBytes.push(currentByte);
+            }
+            return rowBytes;
+        }
+
+        function generateSpriteDataBasic() {
+            let dataOutputString = "";
+            const baseLineNumber = 1000; 
+            for (let r = 0; r < GRID_ROWS; r++) {
+                const rowBytes = getRowBytes(r);
+                const currentLine = baseLineNumber + (r * 10);
+                dataOutputString += `${currentLine} DATA ${rowBytes.join(',')}\n`;
+            }
+            spriteDataOutputBasic.value = dataOutputString.trim();
+        }
+
+        function generateSpriteDataHex() {
+            let dataOutputString = "";
+            const labelPrefix = "SPRITE_ROW_"; // Optional label prefix
+            for (let r = 0; r < GRID_ROWS; r++) {
+                const rowBytes = getRowBytes(r);
+                const hexBytes = rowBytes.map(byte => `$${byte.toString(16).toUpperCase().padStart(2, '0')}`);
+                // Example: SPRITE_ROW_0: .BYTE $XX,$XX,$XX
+                // For simplicity, just using .BYTE for now. Labels can be added if desired.
+                dataOutputString += `.BYTE ${hexBytes.join(',')}\n`;
+            }
+            spriteDataOutputHex.value = dataOutputString.trim();
+        }
+        
+        function generateAllSpriteData() {
+            generateSpriteDataBasic();
+            generateSpriteDataHex();
+        }
+
+        // --- Clipboard Copy ---
+        function copyToClipboard(textToCopy, dataType) {
+            // Create a temporary textarea element to hold the text
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = textToCopy;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            tempTextArea.setSelectionRange(0, 99999); // For mobile devices
+
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    copyMessageText.textContent = `${dataType} copied to clipboard!`;
+                } else {
+                    copyMessageText.textContent = `Failed to copy ${dataType}. Try manual copy.`;
+                    console.error('Fallback: Oops, unable to copy');
+                }
+            } catch (err) {
+                copyMessageText.textContent = `Error copying ${dataType}: ${err}. Try manual copy.`;
+                console.error('Fallback: Oops, unable to copy', err);
+            }
+            document.body.removeChild(tempTextArea);
+            copyMessageModal.classList.remove('hidden'); // Show the modal
+        }
+
+
+        // --- Start the application ---
+        document.addEventListener('DOMContentLoaded', initialize);
+    </script>
+</body>
+</html>

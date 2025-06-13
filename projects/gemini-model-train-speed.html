@@ -27,12 +27,12 @@
         <div class="space-y-6">
             <!-- Scale Selector -->
             <div>
-                <label for="scale" class="block text-sm font-medium text-gray-700 mb-1">Model Scale (British)</label>
+                <label for="scale" class="block text-sm font-medium text-gray-700 mb-1">Model Scale</label>
                 <select id="scale" class="w-full p-3 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
                     <option value="OO">OO (1:76.2)</option>
+                    <option value="HO">HO (1:87.1)</option>
                     <option value="N">N (1:148)</option>
                     <option value="O">O (1:43.5)</option>
-                    <option value="G">G (1:22.5)</option>
                     <option value="TT120">TT:120 (1:120)</option>
                     <option value="Z">Z (1:220)</option>
                     <option value="custom">Custom</option>
@@ -106,7 +106,7 @@
             const resultUnitDisplay = document.getElementById('resultUnit');
 
             // --- Constants & State ---
-            const SCALES = { 'OO': 76.2, 'N': 148, 'O': 43.5, 'G': 22.5, 'TT120': 120, 'Z': 220 };
+            const SCALES = { 'OO': 76.2, 'HO': 87.1, 'N': 148, 'O': 43.5, 'TT120': 120, 'Z': 220 };
             let timer = { startTime: 0, intervalId: null };
             let state = {
                 scale: 'OO',
@@ -138,7 +138,7 @@
                 const distance = parseFloat(state.distance) || 0;
                 const time = parseFloat(state.time) || 0;
 
-                if (scaleRatio === 0 || distance === 0 || time === 0) {
+                if (!scaleRatio || scaleRatio === 0 || distance === 0 || time === 0) {
                     resultDisplay.innerHTML = `0.00 <span id="resultUnit" class="text-2xl md:text-3xl font-medium">${state.speedUnit}</span>`;
                     return;
                 }
@@ -216,8 +216,11 @@
             const loadState = () => {
                 const savedState = localStorage.getItem('modelTrainSpeedState');
                 if (savedState) {
-                    const loadedState = JSON.parse(savedState);
-                     // Merge saved state with default to prevent errors if new properties are added
+                    let loadedState = JSON.parse(savedState);
+                     // Check if saved scale is valid in the new list, otherwise default to OO
+                    if (!SCALES.hasOwnProperty(loadedState.scale) && loadedState.scale !== 'custom') {
+                       loadedState.scale = 'OO';
+                    }
                     state = { ...state, ...loadedState };
                 }
                 

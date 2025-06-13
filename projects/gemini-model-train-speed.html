@@ -27,15 +27,12 @@
         <div class="space-y-6">
             <!-- Scale Selector -->
             <div>
-                <label for="scale" class="block text-sm font-medium text-gray-700 mb-1">Model Scale</label>
+                <div class="flex justify-between items-center mb-1">
+                    <label id="scaleLabel" for="scale" class="block text-sm font-medium text-gray-700">Model Scale</label>
+                    <a href="#" id="switchScaleSet" class="text-sm text-indigo-600 hover:text-indigo-800">Switch to NEM/NMRA</a>
+                </div>
                 <select id="scale" class="w-full p-3 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
-                    <option value="OO">OO (1:76.2)</option>
-                    <option value="HO">HO (1:87.1)</option>
-                    <option value="N">N (1:148)</option>
-                    <option value="O">O (1:43.5)</option>
-                    <option value="TT120">TT:120 (1:120)</option>
-                    <option value="Z">Z (1:220)</option>
-                    <option value="custom">Custom</option>
+                    <!-- Options will be populated by JavaScript -->
                 </select>
                 <div id="customScaleContainer" class="hidden mt-2">
                     <label for="customScale" class="block text-sm font-medium text-gray-700 mb-1">Custom Scale Ratio</label>
@@ -92,6 +89,8 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // --- DOM Elements ---
+            const scaleLabel = document.getElementById('scaleLabel');
+            const switchScaleSetLink = document.getElementById('switchScaleSet');
             const scaleSelect = document.getElementById('scale');
             const customScaleContainer = document.getElementById('customScaleContainer');
             const customScaleInput = document.getElementById('customScale');
@@ -103,12 +102,38 @@
             const speedUnitMphButton = document.getElementById('speedUnitMph');
             const speedUnitKmhButton = document.getElementById('speedUnitKmh');
             const resultDisplay = document.getElementById('result');
-            const resultUnitDisplay = document.getElementById('resultUnit');
-
+            
             // --- Constants & State ---
-            const SCALES = { 'OO': 76.2, 'HO': 87.1, 'N': 148, 'O': 43.5, 'TT120': 120, 'Z': 220 };
+            const SCALES_DATA = {
+                british: {
+                    label: 'Model Scale (British)',
+                    switchText: 'Switch to NEM/NMRA',
+                    scales: {
+                        'OO': { text: 'OO (1:76.2)', ratio: 76.2 },
+                        'HO': { text: 'HO (1:87.1)', ratio: 87.1 },
+                        'N':  { text: 'N (1:148)', ratio: 148 },
+                        'O':  { text: 'O (1:43.5)', ratio: 43.5 },
+                        'TT120': { text: 'TT:120 (1:120)', ratio: 120 },
+                        'Z':  { text: 'Z (1:220)', ratio: 220 },
+                    }
+                },
+                nem: {
+                    label: 'Model Scale (NEM/NMRA)',
+                    switchText: 'Switch to British',
+                    scales: {
+                        'HO': { text: 'HO (1:87.1)', ratio: 87.1 },
+                        'N':  { text: 'N (1:160)', ratio: 160 },
+                        'O':  { text: 'O (1:48)', ratio: 48 },
+                        'Z':  { text: 'Z (1:220)', ratio: 220 },
+                        'G':  { text: 'G (1:22.5)', ratio: 22.5 },
+                        'S':  { text: 'S (1:64)', ratio: 64 },
+                        'TT': { text: 'TT (1:120)', ratio: 120 },
+                    }
+                }
+            };
             let timer = { startTime: 0, intervalId: null };
             let state = {
+                scaleSet: 'british', // 'british' or 'nem'
                 scale: 'OO',
                 customScale: '',
                 distance: '',
@@ -118,12 +143,41 @@
             };
 
             // --- UI Logic ---
-            const toggleCustomScaleInput = () => {
-                if (state.scale === 'custom') {
-                    customScaleContainer.classList.remove('hidden');
-                } else {
-                    customScaleContainer.classList.add('hidden');
+            const populateScaleDropdown = () => {
+                const currentScales = SCALES_DATA[state.scaleSet].scales;
+                const savedSelection = state.scale;
+                scaleSelect.innerHTML = ''; // Clear existing options
+
+                for (const [key, value] of Object.entries(currentScales)) {
+                    const option = document.createElement('option');
+                    option.value = key;
+                    option.textContent = value.text;
+                    scaleSelect.appendChild(option);
                 }
+                
+                const customOption = document.createElement('option');
+                customOption.value = 'custom';
+                customOption.textContent = 'Custom';
+                scaleSelect.appendChild(customOption);
+
+                // Restore selection if it exists in the new set, otherwise default to first
+                if (currentScales[savedSelection] || savedSelection === 'custom') {
+                    scaleSelect.value = savedSelection;
+                } else {
+                    scaleSelect.selectedIndex = 0;
+                    state.scale = scaleSelect.value; // Update state with the new default
+                }
+            };
+
+            const updateScaleSetUI = () => {
+                const setData = SCALES_DATA[state.scaleSet];
+                scaleLabel.textContent = setData.label;
+                switchScaleSetLink.textContent = setData.switchText;
+                populateScaleDropdown();
+            };
+
+            const toggleCustomScaleInput = () => {
+                customScaleContainer.classList.toggle('hidden', state.scale !== 'custom');
             };
 
             // --- Main Calculation Logic ---
@@ -132,40 +186,28 @@
                 if (state.scale === 'custom') {
                     scaleRatio = parseFloat(state.customScale) || 0;
                 } else {
-                    scaleRatio = SCALES[state.scale];
+                    scaleRatio = SCALES_DATA[state.scaleSet]?.scales[state.scale]?.ratio || 0;
                 }
 
                 const distance = parseFloat(state.distance) || 0;
                 const time = parseFloat(state.time) || 0;
 
                 if (!scaleRatio || scaleRatio === 0 || distance === 0 || time === 0) {
-                    resultDisplay.innerHTML = `0.00 <span id="resultUnit" class="text-2xl md:text-3xl font-medium">${state.speedUnit}</span>`;
+                    resultDisplay.innerHTML = `0.00 <span class="text-2xl md:text-3xl font-medium">${state.speedUnit}</span>`;
                     return;
                 }
 
-                // 1. Calculate model distance in meters
                 let distanceInMeters = 0;
-                if (state.distanceUnit === 'cm') {
-                    distanceInMeters = distance / 100;
-                } else if (state.distanceUnit === 'mm') {
-                    distanceInMeters = distance / 1000;
-                } else if (state.distanceUnit === 'in') {
-                    distanceInMeters = distance * 0.0254;
-                }
+                if (state.distanceUnit === 'cm') distanceInMeters = distance / 100;
+                else if (state.distanceUnit === 'mm') distanceInMeters = distance / 1000;
+                else if (state.distanceUnit === 'in') distanceInMeters = distance * 0.0254;
 
-                // 2. Calculate real distance and speed in m/s
                 const realDistanceInMeters = distanceInMeters * scaleRatio;
                 const speedMps = realDistanceInMeters / time;
 
-                // 3. Convert to desired output unit
-                let finalSpeed = 0;
-                if (state.speedUnit === 'mph') {
-                    finalSpeed = speedMps * 2.23694; // m/s to mph
-                } else {
-                    finalSpeed = speedMps * 3.6; // m/s to km/h
-                }
+                let finalSpeed = (state.speedUnit === 'mph') ? speedMps * 2.23694 : speedMps * 3.6;
                 
-                resultDisplay.innerHTML = `${finalSpeed.toFixed(2)} <span id="resultUnit" class="text-2xl md:text-3xl font-medium">${state.speedUnit}</span>`;
+                resultDisplay.innerHTML = `${finalSpeed.toFixed(2)} <span class="text-2xl md:text-3xl font-medium">${state.speedUnit}</span>`;
                 
                 saveState();
             };
@@ -177,10 +219,8 @@
                 stopButton.disabled = false;
                 timeInput.value = 'Timing...';
                 timeInput.readOnly = true;
-
                 timer.intervalId = setInterval(() => {
-                    const elapsedTime = ((Date.now() - timer.startTime) / 1000).toFixed(2);
-                    timeInput.value = elapsedTime;
+                    timeInput.value = ((Date.now() - timer.startTime) / 1000).toFixed(2);
                 }, 100);
             };
 
@@ -189,23 +229,21 @@
                 const elapsedTime = ((Date.now() - timer.startTime) / 1000).toFixed(2);
                 timeInput.value = elapsedTime;
                 state.time = elapsedTime;
-                
                 startButton.disabled = false;
                 stopButton.disabled = true;
                 timeInput.readOnly = false;
-                
                 calculateAndDisplaySpeed();
             };
             
             // --- UI & State Management ---
             const updateSpeedUnitUI = () => {
-                if(state.speedUnit === 'mph') {
-                    speedUnitMphButton.classList.add('bg-white', 'text-indigo-700', 'shadow');
-                    speedUnitKmhButton.classList.remove('bg-white', 'text-indigo-700', 'shadow');
-                } else {
-                    speedUnitKmhButton.classList.add('bg-white', 'text-indigo-700', 'shadow');
-                    speedUnitMphButton.classList.remove('bg-white', 'text-indigo-700', 'shadow');
-                }
+                const isMph = state.speedUnit === 'mph';
+                speedUnitMphButton.classList.toggle('bg-white', isMph);
+                speedUnitMphButton.classList.toggle('text-indigo-700', isMph);
+                speedUnitMphButton.classList.toggle('shadow', isMph);
+                speedUnitKmhButton.classList.toggle('bg-white', !isMph);
+                speedUnitKmhButton.classList.toggle('text-indigo-700', !isMph);
+                speedUnitKmhButton.classList.toggle('shadow', !isMph);
                 calculateAndDisplaySpeed();
             };
             
@@ -216,22 +254,19 @@
             const loadState = () => {
                 const savedState = localStorage.getItem('modelTrainSpeedState');
                 if (savedState) {
-                    let loadedState = JSON.parse(savedState);
-                     // Check if saved scale is valid in the new list, otherwise default to OO
-                    if (!SCALES.hasOwnProperty(loadedState.scale) && loadedState.scale !== 'custom') {
-                       loadedState.scale = 'OO';
-                    }
+                    const loadedState = JSON.parse(savedState);
                     state = { ...state, ...loadedState };
                 }
-                
-                scaleSelect.value = state.scale;
-                customScaleInput.value = state.customScale;
-                distanceInput.value = state.distance;
-                distanceUnitSelect.value = state.distanceUnit;
-                timeInput.value = state.time;
             };
             
             // --- Event Listeners ---
+            switchScaleSetLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                state.scaleSet = (state.scaleSet === 'british') ? 'nem' : 'british';
+                updateScaleSetUI();
+                calculateAndDisplaySpeed();
+            });
+
             scaleSelect.addEventListener('change', (e) => {
                 state.scale = e.target.value;
                 toggleCustomScaleInput();
@@ -243,39 +278,27 @@
                 calculateAndDisplaySpeed();
             });
 
-            distanceInput.addEventListener('input', (e) => {
-                state.distance = e.target.value;
-                calculateAndDisplaySpeed();
-            });
-
-            distanceUnitSelect.addEventListener('change', (e) => {
-                state.distanceUnit = e.target.value;
-                calculateAndDisplaySpeed();
-            });
-
-            timeInput.addEventListener('input', (e) => {
-                if (!startButton.disabled) {
-                    state.time = e.target.value;
-                    calculateAndDisplaySpeed();
-                }
-            });
+            distanceInput.addEventListener('input', (e) => { state.distance = e.target.value; calculateAndDisplaySpeed(); });
+            distanceUnitSelect.addEventListener('change', (e) => { state.distanceUnit = e.target.value; calculateAndDisplaySpeed(); });
+            timeInput.addEventListener('input', (e) => { if (!startButton.disabled) { state.time = e.target.value; calculateAndDisplaySpeed(); }});
             
             startButton.addEventListener('click', startTimer);
             stopButton.addEventListener('click', stopTimer);
             
-            speedUnitMphButton.addEventListener('click', () => {
-                state.speedUnit = 'mph';
-                updateSpeedUnitUI();
-            });
-            
-            speedUnitKmhButton.addEventListener('click', () => {
-                state.speedUnit = 'kmh';
-                updateSpeedUnitUI();
-            });
+            speedUnitMphButton.addEventListener('click', () => { state.speedUnit = 'mph'; updateSpeedUnitUI(); });
+            speedUnitKmhButton.addEventListener('click', () => { state.speedUnit = 'kmh'; updateSpeedUnitUI(); });
 
             // --- Initialisation ---
             loadState();
+            updateScaleSetUI();
             toggleCustomScaleInput();
+            
+            // Populate form fields from loaded state
+            customScaleInput.value = state.customScale;
+            distanceInput.value = state.distance;
+            distanceUnitSelect.value = state.distanceUnit;
+            timeInput.value = state.time;
+            
             updateSpeedUnitUI();
         });
     </script>

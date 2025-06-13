@@ -29,7 +29,7 @@
             <div>
                 <div class="flex justify-between items-center mb-1">
                     <label id="scaleLabel" for="scale" class="block text-sm font-medium text-gray-700">Model Scale</label>
-                    <a href="#" id="switchScaleSet" class="text-sm text-indigo-600 hover:text-indigo-800">Switch to NEM/NMRA</a>
+                    <a href="#" id="switchScaleSet" class="text-sm text-indigo-600 hover:text-indigo-800">Switch to European/US</a>
                 </div>
                 <select id="scale" class="w-full p-3 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
                     <!-- Options will be populated by JavaScript -->
@@ -107,7 +107,7 @@
             const SCALES_DATA = {
                 british: {
                     label: 'Model Scale (British)',
-                    switchText: 'Switch to NEM/NMRA',
+                    switchText: 'Switch to European/US',
                     scales: {
                         'OO': { text: 'OO (1:76.2)', ratio: 76.2 },
                         'HO': { text: 'HO (1:87.1)', ratio: 87.1 },
@@ -118,7 +118,7 @@
                     }
                 },
                 nem: {
-                    label: 'Model Scale (NEM/NMRA)',
+                    label: 'Model Scale (European/US)',
                     switchText: 'Switch to British',
                     scales: {
                         'HO': { text: 'HO (1:87.1)', ratio: 87.1 },
